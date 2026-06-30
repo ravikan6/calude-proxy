@@ -1,0 +1,47 @@
+name: Rust
+
+on:
+  push:
+    paths: ["rust-proxy/**", "Dockerfile", ".github/workflows/rust.yml"]
+  pull_request:
+    paths: ["rust-proxy/**", "Dockerfile", ".github/workflows/rust.yml"]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: rust-proxy
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: rust-proxy
+      - run: cargo fmt --check
+      - run: cargo test --locked --all-targets
+      - run: cargo clippy --locked --all-targets --all-features -- -D warnings
+
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: rustsec/audit-check@v2.0.0
+        with:
+          working-directory: rust-proxy
+
+  container:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: false
+          tags: claude-code-proxy:test

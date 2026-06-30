@@ -1,0 +1,7 @@
+.git
+.venv
+__pycache__
+*.pyc
+rust-proxy/target
+.env
+demo.png

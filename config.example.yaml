@@ -1,0 +1,71 @@
+server:
+  bind: "0.0.0.0:8082"
+  metrics_bind: "0.0.0.0:9090"
+  max_body_bytes: 16777216
+  shutdown_grace_seconds: 30
+  require_anthropic_version: true
+
+limits:
+  global_concurrency: 512
+  connect_timeout_ms: 5000
+  request_timeout_seconds: 120
+  stream_idle_timeout_seconds: 60
+  max_attempts: 2
+  circuit_failure_threshold: 5
+  circuit_cooldown_seconds: 30
+
+clients:
+  - id: engineering
+    key:
+      env: PROXY_CLIENT_KEY
+    allowed_routes: [sonnet, haiku]
+    requests_per_minute: 600
+    concurrent_requests: 100
+
+providers:
+  - id: openai
+    kind: openai_chat
+    endpoint: "https://api.openai.com/v1"
+    credential:
+      type: bearer
+      secret:
+        env: OPENAI_API_KEY
+    capability_profile:
+      tokenizer: o200k_base
+      vision: true
+      tools: true
+      parallel_tools: true
+      supports_temperature: true
+      supports_top_p: true
+      supports_stop: true
+      max_output_tokens: 16384
+      use_max_completion_tokens: false
+    headers:
+      user-agent: claude-code-proxy/0.2.0
+
+  # Azure's endpoint should include the deployment path and API version when
+  # using its legacy API, or end in /openai/v1 for the unified v1 API.
+  # - id: azure
+  #   kind: azure_chat
+  #   endpoint: "https://RESOURCE.openai.azure.com/openai/v1"
+  #   credential:
+  #     type: api_key
+  #     secret:
+  #       env: AZURE_OPENAI_API_KEY
+
+routes:
+  - id: sonnet
+    models: ["claude-*-sonnet-*", "claude-sonnet-*"]
+    targets:
+      - provider: openai
+        model: gpt-4.1
+        priority: 1
+        weight: 100
+
+  - id: haiku
+    models: ["claude-*-haiku-*", "claude-haiku-*"]
+    targets:
+      - provider: openai
+        model: gpt-4.1-mini
+        priority: 1
+        weight: 100
