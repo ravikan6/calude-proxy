@@ -2,7 +2,9 @@ use std::{future::IntoFuture, path::PathBuf, sync::Arc};
 
 use arc_swap::ArcSwap;
 use clap::{Parser, Subcommand};
-use claude_code_proxy::{build_app, AppConfig, Runtime, SharedState};
+use claude_code_proxy::{
+    build_app, build_dashboard_routes, AppConfig, DashboardState, Runtime, SharedState,
+};
 use metrics_exporter_prometheus::PrometheusBuilder;
 use tokio::net::TcpListener;
 
@@ -10,7 +12,7 @@ use tokio::net::TcpListener;
 #[command(
     name = "claude-code-proxy",
     version,
-    about = "Production Anthropic-to-OpenAI gateway"
+    about = "Production Anthropic-to-OpenAI gateway with dashboard"
 )]
 struct Cli {
     #[command(subcommand)]
@@ -22,6 +24,10 @@ enum Command {
     Serve {
         #[arg(short, long, default_value = "config.yaml")]
         config: PathBuf,
+        #[arg(long, default_value = "proxy.db")]
+        database: PathBuf,
+        #[arg(long, env = "PROXY_ADMIN_SECRET", default_value = "")]
+        admin_secret: String,
     },
     CheckConfig {
         #[arg(short, long, default_value = "config.yaml")]
@@ -50,6 +56,12 @@ async fn main() {
 async fn run() -> claude_code_proxy::error::Result<()> {
     let cli = Cli::parse();
     match cli.command {
+        Command::Serve {
+            config,
+            database,
+            admin_secret,
+        } =>
+            serve(config, database, admin_secret).await,
         Command::CheckConfig { config } => {
             Runtime::new(AppConfig::load(config)?)?;
             println!("configuration is valid");
@@ -87,11 +99,14 @@ async fn run() -> claude_code_proxy::error::Result<()> {
             println!("provider {provider} is reachable and authenticated");
             Ok(())
         }
-        Command::Serve { config } => serve(config).await,
     }
 }
 
-async fn serve(path: PathBuf) -> claude_code_proxy::error::Result<()> {
+async fn serve(
+    path: PathBuf,
+    database_path: PathBuf,
+    admin_secret: String,
+) -> claude_code_proxy::error::Result<()> {
     tracing_subscriber::fmt()
         .json()
         .with_env_filter(
@@ -107,12 +122,21 @@ async fn serve(path: PathBuf) -> claude_code_proxy::error::Result<()> {
     let shared: SharedState = Arc::new(ArcSwap::from(runtime));
     spawn_reload(path, shared.clone());
 
+    // Initialize dashboard state
+    let database_url = format!("sqlite:{}", database_path.display());
+    let db_pool = claude_code_proxy::create_db_pool(&database_url).await?;
+    claude_code_proxy::initialize_database(&db_pool).await?;
+    let dashboard_state = Arc::new(DashboardState {
+        db_pool,
+        admin_secret,
+    });
+
     if let Some(metrics_bind) = metrics_bind {
         let handle = PrometheusBuilder::new()
             .install_recorder()
             .map_err(|error| {
                 claude_code_proxy::error::ProxyError::new(
-                    claude_code_proxy::error::ErrorKind::Internal,
+                    claude_code_proxy::ErrorKind::Internal,
                     format!("metrics initialization failed: {error}"),
                 )
             })?;
@@ -136,22 +160,27 @@ async fn serve(path: PathBuf) -> claude_code_proxy::error::Result<()> {
     }
 
     let app = build_app(shared);
+    let dashboard_app = build_dashboard_routes(dashboard_state);
+
+    // Combine both apps
+    let combined_app = app.merge(dashboard_app);
+
     let listener = TcpListener::bind(bind).await.map_err(|error| {
         claude_code_proxy::error::ProxyError::new(
-            claude_code_proxy::error::ErrorKind::Internal,
+            claude_code_proxy::ErrorKind::Internal,
             format!("cannot bind {bind}: {error}"),
         )
     })?;
     tracing::info!(%bind, "proxy listening");
     let (shutdown_tx, shutdown_rx) = tokio::sync::oneshot::channel();
-    let server = axum::serve(listener, app)
+    let server = axum::serve(listener, combined_app)
         .with_graceful_shutdown(async move {
-            let _ = shutdown_rx.await;
+            let _| = shutdown_rx.await;
         })
         .into_future();
     tokio::pin!(server);
     tokio::select! {
-        result = &mut server => result.map_err(|error| claude_code_proxy::error::ProxyError::new(claude_code_proxy::error::ErrorKind::Internal, format!("server failed: {error}")))?,
+        result = &mut server => result.map_err(|error| claude_code_proxy::error::ProxyError::new(claude_code_proxy::ErrorKind::Internal, format!("server failed: {error}")))?,
         _ = shutdown_signal() => {
             let _ = shutdown_tx.send(());
             if tokio::time::timeout(shutdown_grace, &mut server).await.is_err() {

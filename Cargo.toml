@@ -17,6 +17,7 @@ arc-swap = "1.7"
 async-stream = "0.3"
 async-trait = "0.1"
 axum = "0.8"
+axum-extra = "0.9"
 base64 = "0.22"
 bytes = "1"
 clap = { version = "4.5", features = ["derive", "env"] }
@@ -31,15 +32,20 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 serde_yaml = { package = "serde_yaml_ng", version = "0.10" }
 sha2 = "0.10"
+sqlx = { version = "0.8", features = ["sqlite", "runtime-tokio", "tls-native-tls"] }
 subtle = "2.6"
 thiserror = "2"
 tiktoken-rs = "0.12"
 tokio = { version = "1", features = ["full"] }
 tower = { version = "0.5", features = ["limit", "load-shed", "timeout"] }
-tower-http = { version = "0.6", features = ["catch-panic", "request-id", "trace", "limit"] }
+tower-http = { version = "0.6", features = ["catch-panic", "request-id", "trace", "limit", "fs"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
 uuid = { version = "1", features = ["v4", "serde"] }
+argon2 = "0.5"
+jsonwebtoken = "9"
+tera = "1.19"
+tower-cookies = "0.10"
 
 [dev-dependencies]
 http-body-util = "0.1"

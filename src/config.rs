@@ -259,6 +259,17 @@ impl AppConfig {
         Ok(config)
     }
 
+    pub fn load_from_value(value: serde_json::Value) -> Result<Self> {
+        let config: Self = serde_json::from_value(value).map_err(|error| {
+            ProxyError::new(
+                ErrorKind::Internal,
+                format!("invalid config: {error}"),
+            )
+        })?;
+        config.validate()?;
+        Ok(config)
+    }
+
     pub fn validate(&self) -> Result<()> {
         if self.clients.is_empty() || self.providers.is_empty() || self.routes.is_empty() {
             return Err(ProxyError::new(
