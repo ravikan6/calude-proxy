@@ -5,12 +5,14 @@ services:
       dockerfile: Dockerfile
     init: true
     restart: unless-stopped
+    env_file:
+      - .env
     environment:
       OPENAI_API_KEY: ${OPENAI_API_KEY:?set OPENAI_API_KEY}
       PROXY_CLIENT_KEY: ${PROXY_CLIENT_KEY:?set PROXY_CLIENT_KEY}
       RUST_LOG: ${RUST_LOG:-info}
     volumes:
-      - ./rust-proxy/config.yaml:/etc/claude-code-proxy/config.yaml:ro
+      - ./config.yaml:/etc/claude-code-proxy/config.yaml:ro
     ports:
       - "8082:8082"
       - "127.0.0.1:9090:9090"

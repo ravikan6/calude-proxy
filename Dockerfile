@@ -1,7 +1,7 @@
-FROM rust:1.86-bookworm AS builder
+FROM rust:1.96-bookworm AS builder
 WORKDIR /build
-COPY rust-proxy/Cargo.toml rust-proxy/Cargo.lock ./
-COPY rust-proxy/src ./src
+COPY Cargo.toml Cargo.lock ./
+COPY src ./src
 RUN cargo build --locked --release
 
 FROM debian:bookworm-slim

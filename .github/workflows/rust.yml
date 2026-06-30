@@ -2,9 +2,9 @@ name: Rust
 
 on:
   push:
-    paths: ["rust-proxy/**", "Dockerfile", ".github/workflows/rust.yml"]
+    paths: ["", "Dockerfile", ".github/workflows/rust.yml"]
   pull_request:
-    paths: ["rust-proxy/**", "Dockerfile", ".github/workflows/rust.yml"]
+    paths: ["", "Dockerfile", ".github/workflows/rust.yml"]
 
 permissions:
   contents: read
