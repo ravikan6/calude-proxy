@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Claude Code Proxy Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="/static/styles.css">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#3B82F6',
+                        'primary-dark': '#2563EB',
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <div class="container mx-auto px-4 py-8">
+        <header class="mb-8">
+            <h1 class="text-3xl font-bold text-gray-800">Claude Code Proxy Dashboard</h1>
+            <p class="text-gray-600 mt-2">Manage your proxy configuration through this web interface</p>
+        </header>
+
+        <div id="app" class="space-y-8">
+            <!-- Loading state -->
+            <div id="loading" class="text-center py-12">
+                <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                <p class="mt-4 text-gray-600">Loading...</p>
+            </div>
+
+            <!-- Content will be loaded here -->
+            <div id="content" class="hidden"></div>
+
+            <!-- Error message -->
+            <div id="error" class="hidden p-4 mb-4 bg-red-50 border border-red-200 rounded-md text-sm text-red-700">
+                <p id="error-message"></p>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { App } from '/static/app.js';
+
+        // Initialize the app when the DOM is loaded
+        document.addEventListener('DOMContentLoaded', () => {
+            const app = new App();
+            app.init();
+        });
+    </script>
+</body>
+</html>

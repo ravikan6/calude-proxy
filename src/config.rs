@@ -6,11 +6,11 @@ use std::{
     time::Duration,
 };
 
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 use crate::error::{ErrorKind, ProxyError, Result};
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct AppConfig {
     #[serde(default)]
@@ -22,7 +22,7 @@ pub struct AppConfig {
     pub routes: Vec<RouteConfig>,
 }
 
-#[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(default, deny_unknown_fields)]
 pub struct ServerConfig {
     pub bind: SocketAddr,
@@ -46,7 +46,7 @@ impl Default for ServerConfig {
     }
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct LimitsConfig {
     pub global_concurrency: usize,
@@ -72,7 +72,7 @@ impl Default for LimitsConfig {
     }
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct ClientConfig {
     pub id: String,
@@ -82,17 +82,17 @@ pub struct ClientConfig {
     #[serde(default = "default_rpm")]
     pub requests_per_minute: u32,
     #[serde(default = "default_client_concurrency")]
-    pub concurrent_requests: usize,
+    pub concurrent_requests: u32,
 }
 
 fn default_rpm() -> u32 {
     600
 }
-fn default_client_concurrency() -> usize {
+fn default_client_concurrency() -> u32 {
     100
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct ProviderConfig {
     pub id: String,
@@ -107,14 +107,23 @@ pub struct ProviderConfig {
     pub allow_insecure_http: bool,
 }
 
-#[derive(Debug, Clone, Copy, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum ProviderKind {
     OpenaiChat,
     AzureChat,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+impl std::fmt::Display for ProviderKind {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ProviderKind::OpenaiChat => write!(f, "openai_chat"),
+            ProviderKind::AzureChat => write!(f, "azure_chat"),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum CredentialConfig {
     Bearer { secret: SecretRef },
@@ -122,7 +131,7 @@ pub enum CredentialConfig {
     AzureEntra { token: SecretRef },
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(untagged)]
 pub enum SecretOrLiteral {
     Literal(String),
@@ -138,7 +147,7 @@ impl SecretOrLiteral {
     }
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(untagged)]
 pub enum SecretRef {
     Env { env: String },
@@ -172,7 +181,7 @@ impl SecretRef {
     }
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct CapabilityProfile {
     pub tokenizer: String,
@@ -214,7 +223,7 @@ impl Default for CapabilityProfile {
     }
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct RouteConfig {
     pub id: String,
@@ -222,7 +231,7 @@ pub struct RouteConfig {
     pub targets: Vec<TargetConfig>,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct TargetConfig {
     pub provider: String,

@@ -49,7 +49,7 @@ impl AuthRegistry {
                 allowed_routes: config.allowed_routes.clone(),
                 limiter: Mutex::new(VecDeque::new()),
                 requests_per_minute: config.requests_per_minute as usize,
-                concurrency: Arc::new(Semaphore::new(config.concurrent_requests)),
+                concurrency: Arc::new(Semaphore::new(config.concurrent_requests as usize)),
             }));
         }
         Ok(Self { clients })

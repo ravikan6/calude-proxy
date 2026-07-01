@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - Claude Code Proxy Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="/static/styles.css">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#3B82F6',
+                        'primary-dark': '#2563EB',
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-gray-50 min-h-screen flex items-center justify-center">
+    <div class="bg-white p-8 rounded-lg shadow-md w-full max-w-md">
+        <div class="text-center mb-8">
+            <h1 class="text-2xl font-bold text-gray-800">Claude Code Proxy Dashboard</h1>
+            <p class="text-gray-600 mt-2">Please sign in to continue</p>
+        </div>
+
+        <form id="login-form" class="space-y-6">
+            <div class="form-group">
+                <label for="username" class="form-label">Username</label>
+                <input type="text" id="username" name="username" class="form-input" required>
+            </div>
+
+            <div class="form-group">
+                <label for="password" class="form-label">Password</label>
+                <input type="password" id="password" name="password" class="form-input" required>
+            </div>
+
+            <div id="error-message" class="hidden p-3 mb-4 bg-red-50 border border-red-200 rounded-md text-sm text-red-700">
+                <p id="error-text"></p>
+            </div>
+
+            <button type="submit" class="w-full btn btn-primary">Sign In</button>
+        </form>
+    </div>
+
+    <script>
+        document.getElementById('login-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            const errorElement = document.getElementById('error-message');
+            const errorText = document.getElementById('error-text');
+
+            try {
+                const response = await fetch('/dashboard/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ username, password })
+                });
+
+                if (response.ok) {
+                    // Redirect to dashboard
+                    window.location.href = '/dashboard';
+                } else {
+                    const data = await response.json();
+                    errorText.textContent = data.error || 'Login failed';
+                    errorElement.classList.remove('hidden');
+                }
+            } catch (error) {
+                errorText.textContent = 'An error occurred during login';
+                errorElement.classList.remove('hidden');
+            }
+        });
+    </script>
+</body>
+</html>

@@ -5,7 +5,8 @@ CREATE TABLE IF NOT EXISTS config_versions (
     version INTEGER NOT NULL,
     config_data TEXT NOT NULL,
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
-    created_by TEXT NOT NULL
+    created_by TEXT NOT NULL,
+    is_current BOOLEAN NOT NULL DEFAULT 0
 );
 
 CREATE TABLE IF NOT EXISTS clients (
@@ -50,14 +51,6 @@ CREATE TABLE IF NOT EXISTS route_targets (
     priority INTEGER NOT NULL,
     weight INTEGER NOT NULL,
     FOREIGN KEY (route_id) REFERENCES routes(id) ON DELETE CASCADE
-);
-
-CREATE TABLE IF NOT EXISTS admin_users (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    username TEXT NOT NULL UNIQUE,
-    password_hash TEXT NOT NULL,
-    created_at TEXT NOT NULL DEFAULT (datetime('now')),
-    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
 -- Create indexes for better performance

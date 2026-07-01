@@ -85,7 +85,7 @@ async fn run() -> claude_code_proxy::error::Result<()> {
                 config
                     .routes
                     .iter()
-                    .map(|route| route.id.as_str())
+                    .map(|route| route.id.as_str()
                     .collect::<Vec<_>>()
                     .join(", ")
             );
@@ -126,6 +126,11 @@ async fn serve(
     let database_url = format!("sqlite:{}", database_path.display());
     let db_pool = claude_code_proxy::create_db_pool(&database_url).await?;
     claude_code_proxy::initialize_database(&db_pool).await?;
+    claude_code_proxy::create_initial_admin_user(&db_pool, &admin_secret).await?;
+    claude_code_proxy::create_sample_config(&db_pool).await?;
+    claude_code_proxy::create_sample_client(&db_pool).await?;
+    claude_code_proxy::create_sample_provider(&db_pool).await?;
+    claude_code_proxy::create_sample_route(&db_pool).await?;
     let dashboard_state = Arc::new(DashboardState {
         db_pool,
         admin_secret,
@@ -175,7 +180,7 @@ async fn serve(
     let (shutdown_tx, shutdown_rx) = tokio::sync::oneshot::channel();
     let server = axum::serve(listener, combined_app)
         .with_graceful_shutdown(async move {
-            let _| = shutdown_rx.await;
+            let _ = shutdown_rx.await;
         })
         .into_future();
     tokio::pin!(server);
