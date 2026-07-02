@@ -5,6 +5,7 @@ use clap::{Parser, Subcommand};
 use claude_code_proxy::{
     build_app, build_dashboard_routes, AppConfig, DashboardState, Runtime, SharedState,
 };
+use claude_code_proxy::error::ErrorKind;
 use metrics_exporter_prometheus::PrometheusBuilder;
 use tokio::net::TcpListener;
 
@@ -85,7 +86,7 @@ async fn run() -> claude_code_proxy::error::Result<()> {
                 config
                     .routes
                     .iter()
-                    .map(|route| route.id.as_str()
+                    .map(|route| route.id.as_str())
                     .collect::<Vec<_>>()
                     .join(", ")
             );
@@ -141,7 +142,7 @@ async fn serve(
             .install_recorder()
             .map_err(|error| {
                 claude_code_proxy::error::ProxyError::new(
-                    claude_code_proxy::ErrorKind::Internal,
+                    ErrorKind::Internal,
                     format!("metrics initialization failed: {error}"),
                 )
             })?;
@@ -172,7 +173,7 @@ async fn serve(
 
     let listener = TcpListener::bind(bind).await.map_err(|error| {
         claude_code_proxy::error::ProxyError::new(
-            claude_code_proxy::ErrorKind::Internal,
+            ErrorKind::Internal,
             format!("cannot bind {bind}: {error}"),
         )
     })?;
@@ -185,7 +186,7 @@ async fn serve(
         .into_future();
     tokio::pin!(server);
     tokio::select! {
-        result = &mut server => result.map_err(|error| claude_code_proxy::error::ProxyError::new(claude_code_proxy::ErrorKind::Internal, format!("server failed: {error}")))?,
+        result = &mut server => result.map_err(|error| claude_code_proxy::error::ProxyError::new(ErrorKind::Internal, format!("server failed: {error}")))?,
         _ = shutdown_signal() => {
             let _ = shutdown_tx.send(());
             if tokio::time::timeout(shutdown_grace, &mut server).await.is_err() {

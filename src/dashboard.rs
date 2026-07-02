@@ -5,11 +5,10 @@ use axum::{
     http::{header, HeaderValue, StatusCode},
     middleware::{self, Next},
     response::{Html, IntoResponse, Redirect, Response},
-    routing::{delete, get, post},
-    service::get_service,
+    routing::{delete, get, get_service, post},
     Json, Router,
 };
-use argon2::{Argon2, Algorithm, Version};
+use argon2::Argon2;
 use argon2::password_hash::{PasswordHash, PasswordHasher, PasswordVerifier, SaltString};
 use rand_core::OsRng;
 use serde::{Deserialize, Serialize};
@@ -523,27 +522,28 @@ async fn login_page() -> impl IntoResponse {
     Html(std::include_str!("../templates/login.html"))
 }
 
+#[axum::debug_handler]
 async fn login_handler(
     State(state): State<Arc<DashboardState>>,
-    Json(payload): Json<LoginRequest>,
     cookies: Cookies,
-) -> impl IntoResponse {
+    Json(payload): Json<LoginRequest>,
+) -> Response {
     // Validate input
     if payload.username.is_empty() || payload.password.is_empty() {
-        return ApiResponse::error("Username and password are required".to_string()).into_response();
+        return ApiResponse::<String>::error("Username and password are required".to_string()).into_response();
     }
 
     // Check if the username and password match the admin credentials
     if payload.username == "admin" && payload.password == state.admin_secret {
         // Set a session cookie
-        let cookie = Cookie::build("auth_token", "authenticated")
+        let cookie = Cookie::build(Cookie::new("auth_token", "authenticated"))
             .path("/")
             .http_only(true)
-            .finish();
+            .build();
         cookies.add(cookie);
 
         // Redirect to dashboard
-        Redirect::to("/dashboard")
+        Redirect::to("/dashboard").into_response()
     } else {
         // Check if the user exists in the database
         match sqlx::query(
@@ -561,30 +561,32 @@ async fn login_handler(
                     .is_ok()
                 {
                     // Set a session cookie
-                    let cookie = Cookie::build("auth_token", "authenticated")
+                    let cookie = Cookie::build(Cookie::new("auth_token", "authenticated"))
                         .path("/")
                         .http_only(true)
-                        .finish();
+                        .build();
                     cookies.add(cookie);
 
                     // Redirect to dashboard
-                    Redirect::to("/dashboard")
+                    Redirect::to("/dashboard").into_response()
                 } else {
-                    ApiResponse::error("Invalid credentials".to_string()).into_response()
+                    ApiResponse::<String>::error("Invalid credentials".to_string()).into_response()
                 }
             }
-            Ok(None) => ApiResponse::error("Invalid credentials".to_string()).into_response(),
-            Err(e) => ApiResponse::error(format!("Database error: {}", e)).into_response(),
+            Ok(None) => ApiResponse::<String>::error("Invalid credentials".to_string()).into_response(),
+            Err(e) => ApiResponse::<String>::error(format!("Database error: {}", e)).into_response(),
         }
     }
 }
 
-async fn logout_handler(cookies: Cookies) -> impl IntoResponse {
+async fn logout_handler(cookies: Cookies) -> Response {
     // Clear the auth cookie
-    cookies.remove(Cookie::build("auth_token", "").path("/").finish());
+    cookies.remove(Cookie::build(Cookie::new("auth_token", ""))
+        .path("/")
+        .build());
 
     // Redirect to login page
-    Redirect::to("/dashboard/login")
+    Redirect::to("/dashboard/login").into_response()
 }
 
 async fn auth_middleware(
@@ -608,16 +610,16 @@ async fn auth_middleware(
     Ok(Redirect::to("/dashboard/login").into_response())
 }
 
-async fn dashboard_index(cookies: Cookies) -> impl IntoResponse {
+async fn dashboard_index(cookies: Cookies) -> Response {
     // Check if user is authenticated
     if let Some(cookie) = cookies.get("auth_token") {
         if cookie.value() == "authenticated" {
-            return Html(std::include_str!("../templates/index.html"));
+            return Html(std::include_str!("../templates/index.html")).into_response();
         }
     }
 
     // Redirect to login if not authenticated
-    Redirect::to("/dashboard/login")
+    Redirect::to("/dashboard/login").into_response()
 }
 
 async fn get_config(State(state): State<Arc<DashboardState>>) -> impl IntoResponse {
@@ -638,14 +640,14 @@ async fn get_config(State(state): State<Arc<DashboardState>>) -> impl IntoRespon
 async fn update_config(
     State(state): State<Arc<DashboardState>>,
     Json(payload): Json<serde_json::Value>,
-) -> impl IntoResponse {
+) -> Response {
     // Validate and update configuration
     match AppConfig::load_from_value(payload) {
         Ok(config) => {
             // Serialize and store in database
             let config_data = match serde_yaml::to_string(&config) {
                 Ok(data) => data,
-                Err(e) => return ApiResponse::error(format!("Invalid configuration: {}", e)).into_response(),
+                Err(e) => return ApiResponse::<String>::error(format!("Invalid configuration: {}", e)).into_response(),
             };
 
             // Get current max version
@@ -666,12 +668,12 @@ async fn update_config(
                 .execute(&state.db_pool)
                 .await
             {
-                return ApiResponse::error(format!("Database error: {}", e)).into_response();
+                return ApiResponse::<String>::error(format!("Database error: {}", e)).into_response();
             }
 
-            ApiResponse::success(format!("Configuration updated to version {}", new_version))
+            ApiResponse::success(format!("Configuration updated to version {}", new_version)).into_response()
         }
-        Err(e) => ApiResponse::error(format!("Invalid configuration: {}", e)),
+        Err(e) => ApiResponse::<String>::error(format!("Invalid configuration: {}", e)).into_response(),
     }
 }
 
@@ -789,11 +791,11 @@ async fn list_providers(State(state): State<Arc<DashboardState>>) -> impl IntoRe
 async fn create_provider(
     State(state): State<Arc<DashboardState>>,
     Json(provider): Json<ProviderConfig>,
-) -> impl IntoResponse {
+) -> Response {
     // Create a new provider
     let capability_profile = match serde_json::to_string(&provider.capability_profile) {
         Ok(profile) => profile,
-        Err(e) => return ApiResponse::error(format!("Invalid capability profile: {}", e)).into_response(),
+        Err(e) => return ApiResponse::<String>::error(format!("Invalid capability profile: {}", e)).into_response(),
     };
 
     match sqlx::query("INSERT INTO providers (provider_id, kind, endpoint, capability_profile, allow_insecure_http) VALUES (?, ?, ?, ?, ?)")
@@ -805,8 +807,8 @@ async fn create_provider(
         .execute(&state.db_pool)
         .await
     {
-        Ok(_) => ApiResponse::success("Provider created successfully"),
-        Err(e) => ApiResponse::error(format!("Database error: {}", e)),
+        Ok(_) => ApiResponse::success("Provider created successfully").into_response(),
+        Err(e) => ApiResponse::<String>::error(format!("Database error: {}", e)).into_response(),
     }
 }
 
@@ -833,11 +835,11 @@ async fn update_provider(
     State(state): State<Arc<DashboardState>>,
     Path(id): Path<String>,
     Json(provider): Json<ProviderConfig>,
-) -> impl IntoResponse {
+) -> Response {
     // Update a provider
     let capability_profile = match serde_json::to_string(&provider.capability_profile) {
         Ok(profile) => profile,
-        Err(e) => return ApiResponse::error(format!("Invalid capability profile: {}", e)).into_response(),
+        Err(e) => return ApiResponse::<String>::error(format!("Invalid capability profile: {}", e)).into_response(),
     };
 
     match sqlx::query("UPDATE providers SET kind = ?, endpoint = ?, capability_profile = ?, allow_insecure_http = ? WHERE provider_id = ?")
@@ -851,12 +853,12 @@ async fn update_provider(
     {
         Ok(result) => {
             if result.rows_affected() > 0 {
-                ApiResponse::success("Provider updated successfully")
+                ApiResponse::success("Provider updated successfully").into_response()
             } else {
-                ApiResponse::error("Provider not found".to_string())
+                ApiResponse::<String>::error("Provider not found".to_string()).into_response()
             }
         }
-        Err(e) => ApiResponse::error(format!("Database error: {}", e)),
+        Err(e) => ApiResponse::<String>::error(format!("Database error: {}", e)).into_response(),
     }
 }
 
@@ -1010,7 +1012,7 @@ async fn get_version(
 async fn revert_version(
     State(state): State<Arc<DashboardState>>,
     Path(version): Path<i32>,
-) -> impl IntoResponse {
+) -> Response {
     // Revert to a specific version
     match sqlx::query("SELECT config_data FROM config_versions WHERE version = ?")
         .bind(version)
@@ -1037,13 +1039,13 @@ async fn revert_version(
                 .execute(&state.db_pool)
                 .await
             {
-                return ApiResponse::error(format!("Database error: {}", e)).into_response();
+                return ApiResponse::<String>::error(format!("Database error: {}", e)).into_response();
             }
 
-            ApiResponse::success(format!("Reverted to version {} as version {}", version, new_version))
+            ApiResponse::success(format!("Reverted to version {} as version {}", version, new_version)).into_response()
         }
-        Ok(None) => ApiResponse::error("Version not found".to_string()),
-        Err(e) => ApiResponse::error(format!("Database error: {}", e)),
+        Ok(None) => ApiResponse::<String>::error("Version not found".to_string()).into_response(),
+        Err(e) => ApiResponse::<String>::error(format!("Database error: {}", e)).into_response(),
     }
 }
 

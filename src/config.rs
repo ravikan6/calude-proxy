@@ -1,6 +1,7 @@
 use std::{
     collections::{HashMap, HashSet},
     env, fs,
+    fmt,
     net::SocketAddr,
     path::{Path, PathBuf},
     time::Duration,
@@ -114,8 +115,8 @@ pub enum ProviderKind {
     AzureChat,
 }
 
-impl std::fmt::Display for ProviderKind {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl fmt::Display for ProviderKind {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             ProviderKind::OpenaiChat => write!(f, "openai_chat"),
             ProviderKind::AzureChat => write!(f, "azure_chat"),
